@@ -17,6 +17,10 @@ Allows Liquid Stake from native Sol or a Stake account, using the CLS (Custom Li
 ### [solBlazeLiquidStaking](https://luckystake.xyz/liquid-staking-bsol)
 _____
 
+### marinadeLiquidStaking.ts
+Allows Liquid Stake from native Sol or a Stake account, using the Directed stake feature of Marinade.
+### [marinadeLiquidStaking](https://luckystake.xyz/liquid-staking-msol)
+_____
 ### swapNburnBonk.ts
 Just for fun, allows to swap any token for $BONK. And burn the received $BONK. In a single transaction.
 ### [swapNburn](https://luckystake.xyz/swapnburn)
