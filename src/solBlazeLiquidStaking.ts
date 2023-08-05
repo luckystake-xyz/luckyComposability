@@ -1,7 +1,8 @@
-import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction, VersionedTransaction } from "@solana/web3.js";
 import { depositSol, depositStake, withdrawSol, withdrawStake, stakePoolInfo } from '@solana/spl-stake-pool';
 import fetch from 'node-fetch';
 import { Account, AccountTypes } from '../models/accounts'
+import create, { State } from 'zustand'
 
 function updatePool() {
   return new Promise(async (resolve, reject) => {
@@ -19,6 +20,43 @@ function updatePool() {
       }
   });
 }
+
+class Quote{
+    route: any;
+    otherAmountThreshold: any;
+    constructor(routes:any){
+      this.route = routes ? routes : '';
+      this.otherAmountThreshold = routes ? routes.otherAmountThreshold : '' ;
+    }
+  }
+
+interface UserQuote extends State {
+    quote: any;
+    account: any;
+    getQuote: (amount: any, account: any) => void
+}
+
+export const useQuoteStore = create<UserQuote>((set, _get) => ({
+    quote: [],
+    account: [],
+    getQuote: async (amount, account) => {
+      amount = Number(amount * 10**account?.decimals).toFixed(0)
+      if(account?.account==AccountTypes.Native){ 
+        var quote = new Quote({otherAmountThreshold: amount})
+        console.log(quote)
+      } 
+      else {
+        const mint = account?.pubkey
+        const  data  = await (
+          await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${mint}&outputMint=So11111111111111111111111111111111111111112&amount=${amount.toString()}&slippageBps=10`)
+        ).json()
+        var quote = new Quote(data)
+        console.log(quote)
+      }
+      set((s) => {
+        s.quote = quote;
+      })
+  }}))
 
 export async function stakeTransaction(
     connection: Connection,
@@ -137,63 +175,32 @@ export async function stakeTransaction(
     connection: Connection,
     publicKey: PublicKey,
     account: Account,
-    value: number, 
+    value: number,
+    route: Quote,
   ) {
-    // https://stake-docs.solblaze.org/developers/typescript-sdk#unstake-sol-through-cls-instant
-    const amount = value
-    const BLAZESTAKE_POOL = new PublicKey("stk9ApL5HeVAwPLr3TLhDXdZS8ptVu7zp6ov8HFDuMi");
-    const SOLPAY_API_ACTIVATION = new PublicKey("7f18MLpvAp48ifA1B8q8FBdrGQhyt9u5Lku2VBYejzJL");
-    const validator = "Luck3DN3HhkV6oc7rPQ1hYGgU3b5AhdKW9o1ob6AyU9";
-    const wallet = publicKey
+    // https://station.jup.ag/docs/apis/swap-api
+    const transactions = await (
+        await fetch('https://quote-api.jup.ag/v6/swap', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            quoteResponse: route,
+            userPublicKey: publicKey.toString(),  
+          })
+        })
+      ).json()
 
-    let info = await stakePoolInfo(connection, BLAZESTAKE_POOL);
-    if(info.details.updateRequired) {
-        await updatePool();
-    }
+      const { swapTransaction } = transactions
+      console.log(swapTransaction)
 
-        let withdrawTx = await withdrawSol(
-            connection,
-            BLAZESTAKE_POOL,
-            wallet,
-            wallet,
-            amount
-        );
+      // deserialize the transaction
+      const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
+      var transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+      console.log(transaction);
 
-        let memo = JSON.stringify({
-            type: "cls/validator_unstake/lamports",
-            value: {
-                validator: validator
-            }
-        });
-
-        let memoInstruction = new TransactionInstruction({
-            keys: [{
-                pubkey: wallet,
-                isSigner: true,
-                isWritable: true
-            }],
-            programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-            data: Buffer.from(memo, "utf-8"),
-        });
-
-        let transaction = new Transaction();
-        transaction.add(SystemProgram.transfer({
-            fromPubkey: wallet,
-            toPubkey: SOLPAY_API_ACTIVATION,
-            lamports: 5000
-        }));
-        transaction.add(...withdrawTx.instructions);
-        transaction.add(memoInstruction);
-
-        transaction.feePayer = publicKey;
-        transaction.recentBlockhash = await (await connection.getRecentBlockhash()).blockhash;
-
-        let signers = withdrawTx.signers;
-        if(signers.length > 0) {
-            transaction.partialSign(...signers);
-        }
-
-        return transaction
+      return transaction
     }
 
 export async function unstakeTransaction(
