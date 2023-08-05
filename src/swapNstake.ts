@@ -27,8 +27,8 @@ export const useQuoteStore = create<UserQuote>((set, _get) => ({
     } 
     else {
       const mint = account?.pubkey
-      const  {data}  = await (
-        await fetch(`https://quote-api.jup.ag/v4/quote?inputMint=${mint}&outputMint=So11111111111111111111111111111111111111112&amount=${amount.toString()}&slippageBps=21&onlyDirectRoutes=true`)
+      const  data  = await (
+        await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${mint}&outputMint=So11111111111111111111111111111111111111112&amount=${amount.toString()}&slippageBps=21&onlyDirectRoutes=true`)
       ).json()
       var quote = new Quote(data)
     }
@@ -64,7 +64,7 @@ export async function stakeTransaction(
 
     if(account.account == AccountTypes.Spl ){
       const transactions = await (
-        await fetch('https://quote-api.jup.ag/v4/swap', {
+        await fetch('https://quote-api.jup.ag/v6/swap', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -102,7 +102,7 @@ export async function stakeTransaction(
   
       // decompile transaction message and add transfer instruction
       var message = TransactionMessage.decompile(transaction.message,{addressLookupTableAccounts: addressLookupTableAccounts})
-      message.instructions.push(transferInstruction)
+      //message.instructions.push(transferInstruction)   // Commented to remove fees
       message.instructions.push(createStakeAccountTx.instructions[0])
       message.instructions.push(createStakeAccountTx.instructions[1])
       message.instructions.push(delegateTx.instructions[0])
@@ -125,7 +125,7 @@ export async function stakeTransaction(
       const transaction = createStakeAccountTx.add(delegateTx.instructions[0]);
 
       transaction.feePayer = publicKey;
-      transaction.recentBlockhash = await (await connection.getRecentBlockhash()).blockhash;
+      transaction.recentBlockhash = await (await connection.getLatestBlockhash()).blockhash;
 
       transaction.partialSign(stakeAccount);
   
