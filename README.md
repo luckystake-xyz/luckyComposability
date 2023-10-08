@@ -27,7 +27,7 @@ Just for fun, allows to swap any token for $BONK. And burn the received $BONK. I
 _____
 ### hyperstake.ts
 Allows to split stake from SOL among Native and multiple LST.
-### [swapNburn](https://luckystake.xyz/swapnburn)
+### [swapNburn](https://luckystake.xyz/hyperstake)
 
 
 
